@@ -1,0 +1,15 @@
+int main() {
+    int a = 10
+    int b = 20;  // 缺少分号
+    
+    if a < b {   // 缺少括号
+        a = a + 1;
+    } else {
+        b = b - 1
+    }             // 缺少分号
+    
+    while (a < b) 
+        a = a + 1;  // 缺少大括号
+    
+    return 0;
+} 

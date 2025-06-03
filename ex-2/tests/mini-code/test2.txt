@@ -1,0 +1,77 @@
+// 测试Mini语言的复杂示例程序
+// 包含多种语法结构和错误情况
+
+int factorial(int n) {
+    if (n <= 1) {
+        return 1;
+    } else {
+        return n * factorial(n - 1);
+    }
+}
+
+double calculate(double x, double y) {
+    // 算术运算测试
+    double result = (x + y) * (x - y) / 2.0;
+    
+    // 比较运算符测试
+    if (x >= y) {
+        result = result + 10.0;
+    } else if (x <= 0) {
+        result = 0.0;
+    }
+    
+    return result;
+}
+
+int main() {
+    // 变量声明和初始化
+    int a = 5;
+    int b = 0;
+    double c = 3.14159;
+    
+    // 错误: 未声明的变量
+    d = 100;
+    
+    // 错误: 非法数字格式
+    double invalid1 = 5.;
+    double invalid2 = .123;
+    double invalid3 = 1.2.3;
+    
+    // 错误: 非法标识符
+    int 123abc = 10;
+    
+    // 条件嵌套测试
+    if (a > 0) {
+        if (b == 0) {
+            a = a + 1;
+        }
+    } else {
+        a = 0;
+    }
+    
+    // 函数调用测试
+    int fact = factorial(a);
+    double calc = calculate(a, c);
+    
+    // 循环和复杂条件
+    while (a > 0 && b < 10) {
+        a = a - 1;
+        b = b + 2;
+        
+        if (a == 2 || b == 6) {
+            break;
+        }
+    }
+    
+    // 数组测试
+    int array[10];
+    int i = 0;
+    
+    while (i < 10) {
+        array[i] = i * i;
+        i = i + 1;
+    }
+    
+    return 0;
+}
+# 文件结束标记 

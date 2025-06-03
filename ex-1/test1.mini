@@ -1,0 +1,5 @@
+int @invalid = 10; 
+float num = 12.34.56;
+float num2 = 0..12;
+float num3 = 12.0s1;
+int 2num1 =10;

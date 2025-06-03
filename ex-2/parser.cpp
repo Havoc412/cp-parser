@@ -1,0 +1,488 @@
+#include "parser.h"
+#include <iostream>
+#include <map>
+#include <string>
+#include <vector>
+
+/* 全局变量 */
+static TokenAttr g_token;               // 当前分析的Token
+static std::vector<ParserError> g_errors; // 语法错误列表
+static bool g_hasError = false;         // 是否有语法错误
+
+/* 前向声明所有解析函数 */
+static bool program();
+static bool functionDefinition();
+static bool typeSpecifier();
+static bool parameterList();
+static bool parameterDeclaration();
+static bool compoundStatement();
+static bool statementList();
+static bool statement();
+static bool expressionStatement();
+static bool selectionStatement();
+static bool iterationStatement();
+static bool returnStatement();
+static bool expression();
+static bool assignmentExpression();
+static bool logicalOrExpression();
+static bool logicalAndExpression();
+static bool equalityExpression();
+static bool relationalExpression();
+static bool additiveExpression();
+static bool multiplicativeExpression();
+static bool primaryExpression();
+
+/* 辅助函数 */
+// 添加语法错误
+static void addError(const std::string& message) {
+    ParserError error = { g_token.line, message };
+    g_errors.push_back(error);
+    g_hasError = true;  // 设置错误标志
+    std::cerr << "Syntax Error at line " << g_token.line << ": " << message << std::endl;
+}
+
+// 匹配特定类型的Token
+static bool match(TokenCode code) {
+    if (g_token.code == code) {
+        g_token = getNextToken();
+        return true;
+    }
+    return false;
+}
+
+// 判断当前Token是否为目标类型
+static bool isToken(TokenCode code) {
+    return g_token.code == code;
+}
+
+// 记录并跳过语法错误
+static void skipUntil(std::vector<TokenCode> syncSet) {
+    while (g_token.code != TK_EOF) {
+        for (TokenCode code : syncSet) {
+            if (g_token.code == code) {
+                return;
+            }
+        }
+        g_token = getNextToken();
+    }
+}
+
+/* 递归下降分析函数实现 */
+
+// <program> ::= <function-definition>+
+static bool program() {
+    bool success = true;
+    
+    while (g_token.code != TK_EOF) {
+        if (!functionDefinition()) {
+            success = false;
+            // 尝试同步到下一个函数定义
+            std::vector<TokenCode> syncSet = {KW_INT, KW_DOUBLE, KW_FLOAT, TK_EOF};
+            skipUntil(syncSet);
+        }
+    }
+    
+    return success;
+}
+
+// <function-definition> ::= <type-specifier> <identifier> '(' <parameter-list>? ')' <compound-statement>
+static bool functionDefinition() {
+    if (!typeSpecifier()) {
+        addError("Expected type specifier");
+        return false;
+    }
+    
+    if (!isToken(TK_IDENT)) {
+        addError("Expected function name");
+        return false;
+    }
+    match(TK_IDENT);
+    
+    if (!match(TK_OPENPA)) {
+        addError("Expected '(' after function name");
+        return false;
+    }
+    
+    // 可选的参数列表
+    if (!isToken(TK_CLOSEPA)) {
+        parameterList();
+    }
+    
+    if (!match(TK_CLOSEPA)) {
+        addError("Expected ')' after parameter list");
+        return false;
+    }
+    
+    if (!compoundStatement()) {
+        addError("Expected compound statement in function definition");
+        return false;
+    }
+    
+    return true;
+}
+
+// <type-specifier> ::= 'int' | 'double' | 'float'
+static bool typeSpecifier() {
+    if (match(KW_INT) || match(KW_DOUBLE) || match(KW_FLOAT)) {
+        return true;
+    }
+    return false;
+}
+
+// <parameter-list> ::= <parameter-declaration> | <parameter-list> ',' <parameter-declaration>
+static bool parameterList() {
+    if (!parameterDeclaration()) {
+        return false;
+    }
+    
+    while (match(TK_COMMA)) {
+        if (!parameterDeclaration()) {
+            addError("Expected parameter after ','");
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+// <parameter-declaration> ::= <type-specifier> <identifier>
+static bool parameterDeclaration() {
+    if (!typeSpecifier()) {
+        addError("Expected type specifier in parameter");
+        return false;
+    }
+    
+    if (!isToken(TK_IDENT)) {
+        addError("Expected parameter name");
+        return false;
+    }
+    match(TK_IDENT);
+    
+    return true;
+}
+
+// <compound-statement> ::= '{' <statement-list>? '}'
+static bool compoundStatement() {
+    if (!match(TK_BEGIN)) {
+        addError("Expected '{' at beginning of compound statement");
+        return false;
+    }
+    
+    // 可选的语句列表
+    if (!isToken(TK_END)) {
+        statementList();
+    }
+    
+    if (!match(TK_END)) {
+        addError("Expected '}' at end of compound statement");
+        return false;
+    }
+    
+    return true;
+}
+
+// <statement-list> ::= <statement> | <statement-list> <statement>
+static bool statementList() {
+    while (g_token.code != TK_END && g_token.code != TK_EOF) {
+        if (!statement()) {
+            // 尝试同步到下一个语句
+            std::vector<TokenCode> syncSet = {TK_SEMOCOLOM, TK_BEGIN, TK_END, KW_IF, KW_WHILE, KW_RETURN, TK_EOF};
+            skipUntil(syncSet);
+            if (g_token.code == TK_SEMOCOLOM) {
+                match(TK_SEMOCOLOM); // 跳过分号
+            }
+        }
+    }
+    return true;
+}
+
+// <statement> ::= <expression-statement> | <compound-statement> | <selection-statement> | <iteration-statement> | <return-statement>
+static bool statement() {
+    switch (g_token.code) {
+        case TK_BEGIN:
+            return compoundStatement();
+        case KW_IF:
+            return selectionStatement();
+        case KW_WHILE:
+            return iterationStatement();
+        case KW_RETURN:
+            return returnStatement();
+        default:
+            return expressionStatement();
+    }
+}
+
+// <expression-statement> ::= <expression>? ';'
+static bool expressionStatement() {
+    if (g_token.code != TK_SEMOCOLOM) {
+        if (!expression()) {
+            return false;
+        }
+    }
+    
+    if (!match(TK_SEMOCOLOM)) {
+        addError("Expected ';' at end of expression statement");
+        return false;
+    }
+    
+    return true;
+}
+
+// <selection-statement> ::= 'if' '(' <expression> ')' <statement> ('else' <statement>)?
+static bool selectionStatement() {
+    if (!match(KW_IF)) {
+        addError("Expected 'if' keyword");
+        return false;
+    }
+    
+    if (!match(TK_OPENPA)) {
+        addError("Expected '(' after 'if'");
+        return false;
+    }
+    
+    if (!expression()) {
+        addError("Expected expression in if condition");
+        return false;
+    }
+    
+    if (!match(TK_CLOSEPA)) {
+        addError("Expected ')' after if condition");
+        return false;
+    }
+    
+    if (!statement()) {
+        addError("Expected statement in if body");
+        return false;
+    }
+    
+    // 可选的else部分
+    if (match(KW_ELSE)) {
+        if (!statement()) {
+            addError("Expected statement in else body");
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+// <iteration-statement> ::= 'while' '(' <expression> ')' <statement>
+static bool iterationStatement() {
+    if (!match(KW_WHILE)) {
+        addError("Expected 'while' keyword");
+        return false;
+    }
+    
+    if (!match(TK_OPENPA)) {
+        addError("Expected '(' after 'while'");
+        return false;
+    }
+    
+    if (!expression()) {
+        addError("Expected expression in while condition");
+        return false;
+    }
+    
+    if (!match(TK_CLOSEPA)) {
+        addError("Expected ')' after while condition");
+        return false;
+    }
+    
+    if (!statement()) {
+        addError("Expected statement in while body");
+        return false;
+    }
+    
+    return true;
+}
+
+// <return-statement> ::= 'return' <expression>? ';'
+static bool returnStatement() {
+    if (!match(KW_RETURN)) {
+        addError("Expected 'return' keyword");
+        return false;
+    }
+    
+    // 可选的表达式
+    if (g_token.code != TK_SEMOCOLOM) {
+        if (!expression()) {
+            return false;
+        }
+    }
+    
+    if (!match(TK_SEMOCOLOM)) {
+        addError("Expected ';' after return statement");
+        return false;
+    }
+    
+    return true;
+}
+
+// <expression> ::= <assignment-expression>
+static bool expression() {
+    return assignmentExpression();
+}
+
+// <assignment-expression> ::= <identifier> '=' <logical-or-expression> | <logical-or-expression>
+static bool assignmentExpression() {
+    if (g_token.code == TK_IDENT) {
+        TokenAttr savedToken = g_token;
+        match(TK_IDENT);
+        
+        if (match(TK_ASSIGN)) {
+            return logicalOrExpression();
+        } else {
+            // 不是赋值表达式，回退Token
+            ungetToken();
+            g_token = savedToken;
+        }
+    }
+    
+    return logicalOrExpression();
+}
+
+// <logical-or-expression> ::= <logical-and-expression> | <logical-or-expression> '||' <logical-and-expression>
+// 注意：由于Mini语言语法中没有定义||运算符，这里简化处理
+static bool logicalOrExpression() {
+    return logicalAndExpression();
+}
+
+// <logical-and-expression> ::= <equality-expression> | <logical-and-expression> '&&' <equality-expression>
+// 注意：由于Mini语言语法中没有定义&&运算符，这里简化处理
+static bool logicalAndExpression() {
+    return equalityExpression();
+}
+
+// <equality-expression> ::= <relational-expression> | <equality-expression> '==' <relational-expression>
+static bool equalityExpression() {
+    if (!relationalExpression()) {
+        return false;
+    }
+    
+    while (g_token.code == TK_EQ) {
+        match(TK_EQ);
+        if (!relationalExpression()) {
+            addError("Expected expression after '=='");
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+// <relational-expression> ::= <additive-expression>
+//                          | <relational-expression> '<' <additive-expression>
+//                          | <relational-expression> '>' <additive-expression>
+//                          | <relational-expression> '<=' <additive-expression>
+//                          | <relational-expression> '>=' <additive-expression>
+static bool relationalExpression() {
+    if (!additiveExpression()) {
+        return false;
+    }
+    
+    while (g_token.code == TK_LT || g_token.code == TK_GT || 
+           g_token.code == TK_LEQ || g_token.code == TK_GEQ) {
+        match(g_token.code);
+        if (!additiveExpression()) {
+            addError("Expected expression after relational operator");
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+// <additive-expression> ::= <multiplicative-expression>
+//                        | <additive-expression> '+' <multiplicative-expression>
+//                        | <additive-expression> '-' <multiplicative-expression>
+static bool additiveExpression() {
+    if (!multiplicativeExpression()) {
+        return false;
+    }
+    
+    while (g_token.code == TK_PLUS || g_token.code == TK_MINUS) {
+        match(g_token.code);
+        if (!multiplicativeExpression()) {
+            addError("Expected expression after '+' or '-'");
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+// <multiplicative-expression> ::= <primary-expression>
+//                              | <multiplicative-expression> '*' <primary-expression>
+//                              | <multiplicative-expression> '/' <primary-expression>
+static bool multiplicativeExpression() {
+    if (!primaryExpression()) {
+        return false;
+    }
+    
+    while (g_token.code == TK_STAR || g_token.code == TK_DIVIDE) {
+        match(g_token.code);
+        if (!primaryExpression()) {
+            addError("Expected expression after '*' or '/'");
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+// <primary-expression> ::= <identifier>
+//                       | <constant>
+//                       | '(' <expression> ')'
+static bool primaryExpression() {
+    if (g_token.code == TK_IDENT) {
+        match(TK_IDENT);
+        return true;
+    } else if (g_token.code == TK_INT || g_token.code == TK_DOUBLE) {
+        match(g_token.code);
+        return true;
+    } else if (match(TK_OPENPA)) {
+        if (!expression()) {
+            addError("Expected expression after '('");
+            return false;
+        }
+        
+        if (!match(TK_CLOSEPA)) {
+            addError("Expected ')' after expression");
+            return false;
+        }
+        
+        return true;
+    } else {
+        addError("Expected identifier, constant, or '('");
+        return false;
+    }
+}
+
+/* 接口实现 */
+void initParser(FILE* fp) {
+    initLexer(fp);
+    g_errors.clear();
+    g_hasError = false;  // 初始化错误标志
+    g_token = getNextToken();
+}
+
+ParserResult parse() {
+    bool success = program();
+    // 如果有语法错误，返回错误结果
+    return (success && !g_hasError) ? RESULT_SUCCESS : RESULT_ERROR;
+}
+
+const std::vector<ParserError>& getParserErrors() {
+    return g_errors;
+}
+
+void resetParser() {
+    resetLexer();
+    g_errors.clear();
+    g_hasError = false;  // 重置错误标志
+    g_token = getNextToken();
+}
+
+void closeParser() {
+    closeLexer();
+} 
