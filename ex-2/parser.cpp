@@ -42,6 +42,18 @@ static void addError(const std::string& message) {
     std::cerr << "Syntax Error at line " << g_token.line << ": " << message << std::endl;
 }
 
+// 增强的错误报告函数，包含当前Token的详细信息
+static void addDetailedError(const std::string& message) {
+    std::string detailedMessage = message;
+    if (g_token.code != TK_EOF) {
+        detailedMessage += " (当前Token: '" + g_token.value + "')";
+    }
+    ParserError error = { g_token.line, detailedMessage };
+    g_errors.push_back(error);  // 确保错误被添加到g_errors向量中
+    g_hasError = true;  // 设置错误标志
+    std::cerr << "Syntax Error at line " << g_token.line << ": " << detailedMessage << std::endl;
+}
+
 // 匹配特定类型的Token
 static bool match(TokenCode code) {
     if (g_token.code == code) {
@@ -58,12 +70,36 @@ static bool isToken(TokenCode code) {
 
 // 记录并跳过语法错误
 static void skipUntil(std::vector<TokenCode> syncSet) {
+    // 记录跳过的token，用于错误报告
+    std::string skippedTokens = "";
+    int skipCount = 0;
+    const int maxDisplayTokens = 3;  // 最多显示几个跳过的token
+    
     while (g_token.code != TK_EOF) {
         for (TokenCode code : syncSet) {
             if (g_token.code == code) {
+                if (skipCount > 0) {
+                    std::string message = "已跳过 " + std::to_string(skipCount) + " 个token";
+                    if (!skippedTokens.empty()) {
+                        message += " (包括: " + skippedTokens + ")";
+                    }
+                    std::cerr << "Info: " << message << std::endl;
+                }
                 return;
             }
         }
+        
+        // 记录跳过的token
+        if (skipCount < maxDisplayTokens) {
+            if (!skippedTokens.empty()) {
+                skippedTokens += ", ";
+            }
+            skippedTokens += "'" + g_token.value + "'";
+        } else if (skipCount == maxDisplayTokens) {
+            skippedTokens += "...";
+        }
+        skipCount++;
+        
         g_token = getNextToken();
     }
 }
@@ -75,11 +111,22 @@ static bool program() {
     bool success = true;
     
     while (g_token.code != TK_EOF) {
-        if (!functionDefinition()) {
-            success = false;
-            // 尝试同步到下一个函数定义
+        // 检查是否为函数定义的开始（类型说明符）
+        if (g_token.code == KW_INT || g_token.code == KW_DOUBLE || g_token.code == KW_FLOAT) {
+            if (!functionDefinition()) {
+                success = false;
+                // 提供更详细的错误信息
+                addDetailedError("函数定义语法错误");
+                // 尝试同步到下一个函数定义
+                std::vector<TokenCode> syncSet = {KW_INT, KW_DOUBLE, KW_FLOAT, TK_EOF};
+                skipUntil(syncSet);
+            }
+        } else {
+            // 遇到了非函数定义的开始，报错并跳过
+            addDetailedError("程序中只能包含函数定义，遇到意外的标记");
             std::vector<TokenCode> syncSet = {KW_INT, KW_DOUBLE, KW_FLOAT, TK_EOF};
             skipUntil(syncSet);
+            success = false;
         }
     }
     
@@ -89,18 +136,18 @@ static bool program() {
 // <function-definition> ::= <type-specifier> <identifier> '(' <parameter-list>? ')' <compound-statement>
 static bool functionDefinition() {
     if (!typeSpecifier()) {
-        addError("Expected type specifier");
+        addDetailedError("函数定义缺少类型说明符");
         return false;
     }
     
     if (!isToken(TK_IDENT)) {
-        addError("Expected function name");
+        addDetailedError("函数定义缺少函数名");
         return false;
     }
     match(TK_IDENT);
     
     if (!match(TK_OPENPA)) {
-        addError("Expected '(' after function name");
+        addDetailedError("函数名后缺少左括号 '('");
         return false;
     }
     
@@ -110,12 +157,12 @@ static bool functionDefinition() {
     }
     
     if (!match(TK_CLOSEPA)) {
-        addError("Expected ')' after parameter list");
+        addDetailedError("参数列表后缺少右括号 ')'");
         return false;
     }
     
     if (!compoundStatement()) {
-        addError("Expected compound statement in function definition");
+        addDetailedError("函数定义缺少函数体");
         return false;
     }
     
@@ -138,7 +185,7 @@ static bool parameterList() {
     
     while (match(TK_COMMA)) {
         if (!parameterDeclaration()) {
-            addError("Expected parameter after ','");
+            addDetailedError("逗号后缺少有效的参数声明");
             return false;
         }
     }
@@ -149,12 +196,12 @@ static bool parameterList() {
 // <parameter-declaration> ::= <type-specifier> <identifier>
 static bool parameterDeclaration() {
     if (!typeSpecifier()) {
-        addError("Expected type specifier in parameter");
+        addDetailedError("参数声明缺少类型说明符");
         return false;
     }
     
     if (!isToken(TK_IDENT)) {
-        addError("Expected parameter name");
+        addDetailedError("参数声明缺少参数名");
         return false;
     }
     match(TK_IDENT);
@@ -165,7 +212,7 @@ static bool parameterDeclaration() {
 // <compound-statement> ::= '{' <statement-list>? '}'
 static bool compoundStatement() {
     if (!match(TK_BEGIN)) {
-        addError("Expected '{' at beginning of compound statement");
+        addDetailedError("复合语句缺少左大括号 '{'");
         return false;
     }
     
@@ -175,7 +222,7 @@ static bool compoundStatement() {
     }
     
     if (!match(TK_END)) {
-        addError("Expected '}' at end of compound statement");
+        addDetailedError("复合语句缺少右大括号 '}'");
         return false;
     }
     
@@ -184,17 +231,27 @@ static bool compoundStatement() {
 
 // <statement-list> ::= <statement> | <statement-list> <statement>
 static bool statementList() {
+    bool success = true;
+    
     while (g_token.code != TK_END && g_token.code != TK_EOF) {
         if (!statement()) {
+            success = false;
+            
+            // 提供更详细的错误信息
+            std::string tokenName = "'" + g_token.value + "'";
+            addDetailedError("无法解析语句，遇到意外的标记: " + tokenName);
+            
             // 尝试同步到下一个语句
             std::vector<TokenCode> syncSet = {TK_SEMOCOLOM, TK_BEGIN, TK_END, KW_IF, KW_WHILE, KW_RETURN, TK_EOF};
             skipUntil(syncSet);
+            
+            // 跳过分号以尝试继续解析
             if (g_token.code == TK_SEMOCOLOM) {
                 match(TK_SEMOCOLOM); // 跳过分号
             }
         }
     }
-    return true;
+    return success;
 }
 
 // <statement> ::= <expression-statement> | <compound-statement> | <selection-statement> | <iteration-statement> | <return-statement>
@@ -222,7 +279,7 @@ static bool expressionStatement() {
     }
     
     if (!match(TK_SEMOCOLOM)) {
-        addError("Expected ';' at end of expression statement");
+        addDetailedError("表达式语句缺少分号 ';'");
         return false;
     }
     
@@ -230,36 +287,45 @@ static bool expressionStatement() {
 }
 
 // <selection-statement> ::= 'if' '(' <expression> ')' <statement> ('else' <statement>)?
+//                        | 'if' '(' <expression> ')' 'then' <statement> ('else' <statement>)?
 static bool selectionStatement() {
     if (!match(KW_IF)) {
-        addError("Expected 'if' keyword");
+        addDetailedError("预期关键字 'if'");
         return false;
     }
     
     if (!match(TK_OPENPA)) {
-        addError("Expected '(' after 'if'");
+        addDetailedError("if语句缺少左括号 '('");
         return false;
     }
     
     if (!expression()) {
-        addError("Expected expression in if condition");
+        addDetailedError("if条件表达式无效或缺失");
         return false;
     }
     
     if (!match(TK_CLOSEPA)) {
-        addError("Expected ')' after if condition");
+        addDetailedError("if条件缺少右括号 ')'");
         return false;
     }
     
-    if (!statement()) {
-        addError("Expected statement in if body");
-        return false;
+    // 检查是否有 then 关键字
+    if (match(KW_THEN)) {
+        if (!statement()) {
+            addDetailedError("'then'后应有语句块");
+            return false;
+        }
+    } else {
+        if (!statement()) {
+            addDetailedError("if语句体缺失或无效");
+            return false;
+        }
     }
     
     // 可选的else部分
     if (match(KW_ELSE)) {
         if (!statement()) {
-            addError("Expected statement in else body");
+            addDetailedError("else语句体缺失或无效");
             return false;
         }
     }
@@ -270,27 +336,27 @@ static bool selectionStatement() {
 // <iteration-statement> ::= 'while' '(' <expression> ')' <statement>
 static bool iterationStatement() {
     if (!match(KW_WHILE)) {
-        addError("Expected 'while' keyword");
+        addDetailedError("预期关键字 'while'");
         return false;
     }
     
     if (!match(TK_OPENPA)) {
-        addError("Expected '(' after 'while'");
+        addDetailedError("while语句缺少左括号 '('");
         return false;
     }
     
     if (!expression()) {
-        addError("Expected expression in while condition");
+        addDetailedError("while条件表达式无效或缺失");
         return false;
     }
     
     if (!match(TK_CLOSEPA)) {
-        addError("Expected ')' after while condition");
+        addDetailedError("while条件缺少右括号 ')'");
         return false;
     }
     
     if (!statement()) {
-        addError("Expected statement in while body");
+        addDetailedError("while循环体缺失或无效");
         return false;
     }
     
@@ -300,7 +366,7 @@ static bool iterationStatement() {
 // <return-statement> ::= 'return' <expression>? ';'
 static bool returnStatement() {
     if (!match(KW_RETURN)) {
-        addError("Expected 'return' keyword");
+        addDetailedError("预期关键字 'return'");
         return false;
     }
     
@@ -312,7 +378,7 @@ static bool returnStatement() {
     }
     
     if (!match(TK_SEMOCOLOM)) {
-        addError("Expected ';' after return statement");
+        addDetailedError("return语句缺少分号 ';'");
         return false;
     }
     
@@ -331,7 +397,11 @@ static bool assignmentExpression() {
         match(TK_IDENT);
         
         if (match(TK_ASSIGN)) {
-            return logicalOrExpression();
+            if (!logicalOrExpression()) {
+                addDetailedError("赋值运算符 '=' 后缺少有效的表达式");
+                return false;
+            }
+            return true;
         } else {
             // 不是赋值表达式，回退Token
             ungetToken();
@@ -363,7 +433,7 @@ static bool equalityExpression() {
     while (g_token.code == TK_EQ) {
         match(TK_EQ);
         if (!relationalExpression()) {
-            addError("Expected expression after '=='");
+            addDetailedError("'=='运算符后缺少有效的表达式");
             return false;
         }
     }
@@ -385,7 +455,7 @@ static bool relationalExpression() {
            g_token.code == TK_LEQ || g_token.code == TK_GEQ) {
         match(g_token.code);
         if (!additiveExpression()) {
-            addError("Expected expression after relational operator");
+            addDetailedError("关系运算符后缺少有效的表达式");
             return false;
         }
     }
@@ -404,7 +474,7 @@ static bool additiveExpression() {
     while (g_token.code == TK_PLUS || g_token.code == TK_MINUS) {
         match(g_token.code);
         if (!multiplicativeExpression()) {
-            addError("Expected expression after '+' or '-'");
+            addDetailedError("'+' 或 '-' 运算符后缺少有效的表达式");
             return false;
         }
     }
@@ -423,7 +493,7 @@ static bool multiplicativeExpression() {
     while (g_token.code == TK_STAR || g_token.code == TK_DIVIDE) {
         match(g_token.code);
         if (!primaryExpression()) {
-            addError("Expected expression after '*' or '/'");
+            addDetailedError("'*' 或 '/' 运算符后缺少有效的表达式");
             return false;
         }
     }
@@ -443,18 +513,18 @@ static bool primaryExpression() {
         return true;
     } else if (match(TK_OPENPA)) {
         if (!expression()) {
-            addError("Expected expression after '('");
+            addDetailedError("括号内缺少有效的表达式");
             return false;
         }
         
         if (!match(TK_CLOSEPA)) {
-            addError("Expected ')' after expression");
+            addDetailedError("表达式后缺少右括号 ')'");
             return false;
         }
         
         return true;
     } else {
-        addError("Expected identifier, constant, or '('");
+        addDetailedError("预期标识符、常量或左括号 '('");
         return false;
     }
 }

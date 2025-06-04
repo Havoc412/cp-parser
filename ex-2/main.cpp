@@ -56,7 +56,7 @@ std::string getTokenName(TokenCode code) {
 }
 
 // 输出结果到文件
-void outputResults(const std::string& filename, bool lexOnly) {
+void outputResults(const std::string& filename, bool lexOnly, bool parseSuccess = true, const std::vector<ParserError>& savedParseErrors = std::vector<ParserError>()) {
     // 创建输出目录
     std::string dirName = filename + "-output";
     struct stat info;
@@ -102,18 +102,22 @@ void outputResults(const std::string& filename, bool lexOnly) {
     
     // 输出语法错误信息
     if (!lexOnly) {
-        const std::vector<ParserError>& parseErrors = getParserErrors();
-        if (!parseErrors.empty()) {
-            std::ofstream parseErrorFile(dirName + "/parse_errors.txt");
-            if (parseErrorFile.is_open()) {
-                parseErrorFile << "行号\t错误信息\n";
-                parseErrorFile << "-------------------------------------\n";
-                
-                for (const auto& error : parseErrors) {
-                    parseErrorFile << error.line << "\t" << error.message << "\n";
-                }
-                parseErrorFile.close();
+        const std::vector<ParserError>& parseErrors = savedParseErrors.empty() ? getParserErrors() : savedParseErrors;
+        // 始终创建语法错误文件，即使没有错误
+        std::ofstream parseErrorFile(dirName + "/parse_errors.txt");
+        if (parseErrorFile.is_open()) {
+            parseErrorFile << "行号\t错误信息\n";
+            parseErrorFile << "-------------------------------------\n";
+            
+            for (const auto& error : parseErrors) {
+                parseErrorFile << error.line << "\t" << error.message << "\n";
             }
+            
+            if (parseErrors.empty()) {
+                parseErrorFile << "无语法错误\n";
+            }
+            
+            parseErrorFile.close();
         }
     }
     
@@ -126,9 +130,9 @@ void outputResults(const std::string& filename, bool lexOnly) {
         std::cout << "Token总数: " << tokenList.size() << "\n";
         std::cout << "词法错误总数: " << lexErrors.size() << "\n";
     } else {
-        const std::vector<ParserError>& parseErrors = getParserErrors();
+        const std::vector<ParserError>& parseErrors = savedParseErrors.empty() ? getParserErrors() : savedParseErrors;
         std::cout << "词法分析结果: " << (lexErrors.empty() ? "成功" : "有错误") << "\n";
-        std::cout << "语法分析结果: " << (parseErrors.empty() ? "成功" : "有错误") << "\n";
+        std::cout << "语法分析结果: " << (parseSuccess ? "成功" : "有错误") << "\n";
         std::cout << "Token总数: " << tokenList.size() << "\n";
         std::cout << "词法错误总数: " << lexErrors.size() << "\n";
         std::cout << "语法错误总数: " << parseErrors.size() << "\n";
@@ -143,6 +147,8 @@ int main(int argc, char* argv[]) {
     FILE* fp;
     bool showProcess = true;   // 是否显示分析过程
     bool lexOnly = false;      // 是否仅进行词法分析
+    bool parseSuccess = true;  // 语法分析是否成功
+    std::vector<ParserError> parseErrors; // 保存语法错误
     
     // 检查命令行参数
     if (argc < 2) {
@@ -224,6 +230,10 @@ int main(int argc, char* argv[]) {
         
         // 执行语法分析
         ParserResult result = parse();
+        parseSuccess = (result == RESULT_SUCCESS);
+        
+        // 保存语法错误信息
+        parseErrors = getParserErrors();
         
         // 收集词法分析产生的token（为了输出token列表）
         resetParser();
@@ -238,14 +248,14 @@ int main(int argc, char* argv[]) {
         
         // 输出分析结果
         if (showProcess) {
-            if (result == RESULT_SUCCESS) {
+            if (parseSuccess) {
                 std::cout << "语法分析成功！\n";
             } else {
                 std::cout << "语法分析失败。\n";
             }
         }
         
-        outputResults(filename, false);
+        outputResults(filename, false, parseSuccess, parseErrors);
     }
     
     return 0;

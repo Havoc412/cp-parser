@@ -2,10 +2,23 @@ int main() {
     int a = 10;
     int b = 20;
     
+    // 传统 if-else 结构
     if (a < b) {
         a = a + 1;
     } else {
         b = b - 1;
+    }
+    
+    // 新增的 if-then 结构
+    if (a == b) then {
+        a = a * 2;
+    }
+    
+    // if-then-else 结构
+    if (a > b) then {
+        a = a - 1;
+    } else {
+        b = b + 1;
     }
     
     while (a < b) {
