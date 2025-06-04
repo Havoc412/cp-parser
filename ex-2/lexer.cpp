@@ -301,6 +301,30 @@ static TokenAttr processToken() {
                 break;
             }
             
+            case '&': {  // 处理 &&
+                ch = fgetc(g_fp);
+                if (ch == '&') {
+                    token += ch;
+                    code = TK_AND;  // 逻辑与运算符 &&
+                } else {
+                    ungetc(ch, g_fp);
+                    code = TK_BITAND;
+                }
+                break;
+            }
+            
+            case '|': {  // 处理 ||
+                ch = fgetc(g_fp);
+                if (ch == '|') {
+                    token += ch;
+                    code = TK_OR;  // 逻辑或运算符 ||
+                } else {
+                    ungetc(ch, g_fp);
+                    code = TK_BITOR;
+                }
+                break;
+            }
+            
             default: 
                 if (isNonAscii((unsigned char)ch)) {
                     // 跳过非ASCII字符（如中文），不报错

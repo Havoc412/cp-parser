@@ -123,7 +123,7 @@ static void addDetailedError(const std::string& message) {
 // 匹配特定类型的Token
 static bool match(TokenCode code) {
     if (g_token.code == code) {
-        g_token = getNextToken();
+        g_token = getNextToken();  // INFO get next token
         return true;
     }
     return false;
@@ -139,7 +139,7 @@ static void skipUntil(std::vector<TokenCode> syncSet) {
     // 记录跳过的token，用于错误报告
     std::string skippedTokens = "";
     int skipCount = 0;
-    const int maxDisplayTokens = 3;  // 最多显示几个跳过的token
+    const int maxDisplayTokens = 3;  // DEBUG 最多显示几个跳过的token
     
     while (g_token.code != TK_EOF) {
         for (TokenCode code : syncSet) {
@@ -181,7 +181,7 @@ static bool program() {
     
     while (g_token.code != TK_EOF) {
         // 检查是否为函数定义的开始（类型说明符）
-        std::cout << "program: " << getTokenName(g_token.code) << std::endl;
+        // std::cout << "program: " << getTokenName(g_token.code) << std::endl;  // TEST
         if (g_token.code == KW_INT || g_token.code == KW_DOUBLE || g_token.code == KW_FLOAT) {
             if (!functionDefinition()) {
                 success = false;
@@ -490,7 +490,7 @@ static bool assignmentExpression() {
             return true;
         } else {
             // 不是赋值表达式，回退Token
-            ungetToken();
+            ungetToken();  // INFO unget token
             g_token = savedToken;
         }
     }
@@ -500,16 +500,38 @@ static bool assignmentExpression() {
 
 // 逻辑或表达式
 // <logical-or-expression> ::= <logical-and-expression> | <logical-or-expression> '||' <logical-and-expression>
-// 注意：由于Mini语言语法中没有定义||运算符，这里简化处理
 static bool logicalOrExpression() {
-    return logicalAndExpression();
+    if (!logicalAndExpression()) {
+        return false;
+    }
+    
+    while (g_token.code == TK_OR) {
+        match(TK_OR);
+        if (!logicalAndExpression()) {
+            addDetailedError("'||'运算符后缺少有效的表达式");
+            return false;
+        }
+    }
+    
+    return true;
 }
 
 // 逻辑与表达式
 // <logical-and-expression> ::= <equality-expression> | <logical-and-expression> '&&' <equality-expression>
-// 注意：由于Mini语言语法中没有定义&&运算符，这里简化处理
 static bool logicalAndExpression() {
-    return equalityExpression();
+    if (!equalityExpression()) {
+        return false;
+    }
+    
+    while (g_token.code == TK_AND) {
+        match(TK_AND);
+        if (!equalityExpression()) {
+            addDetailedError("'&&'运算符后缺少有效的表达式");
+            return false;
+        }
+    }
+    
+    return true;
 }
 
 // 相等表达式
@@ -557,12 +579,14 @@ static bool relationalExpression() {
 // <additive-expression> ::= <multiplicative-expression>
 //                        | <additive-expression> '+' <multiplicative-expression>
 //                        | <additive-expression> '-' <multiplicative-expression>
+//                        | <additive-expression> '|' <multiplicative-expression>
+//                        | <additive-expression> '&' <multiplicative-expression>
 static bool additiveExpression() {
     if (!multiplicativeExpression()) {
         return false;
     }
     
-    while (g_token.code == TK_PLUS || g_token.code == TK_MINUS) {
+    while (g_token.code == TK_PLUS || g_token.code == TK_MINUS || g_token.code == TK_BITOR || g_token.code == TK_BITAND) {
         match(g_token.code);
         if (!multiplicativeExpression()) {
             addDetailedError("'+' 或 '-' 运算符后缺少有效的表达式");
@@ -606,7 +630,7 @@ static bool primaryExpression() {
         // 检查是否为函数调用
         if (g_token.code == TK_OPENPA) {
             // 回退Token，以便在functionCall中正确识别函数名
-            ungetToken();
+            ungetToken();  // INFO unget token
             g_token = savedToken;
             return functionCall();
         }

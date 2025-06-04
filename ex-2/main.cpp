@@ -35,6 +35,10 @@ std::string getTokenName(TokenCode code) {
         case TK_DIVIDE: return "OPERATOR_DIVIDE";
         case TK_ASSIGN: return "OPERATOR_ASSIGN";
         case TK_EQ: return "OPERATOR_EQUAL";
+        case TK_BITOR: return "OPERATOR_BITOR";
+        case TK_BITAND: return "OPERATOR_BITAND";
+        case TK_AND: return "OPERATOR_AND";
+        case TK_OR: return "OPERATOR_OR";
         case TK_LT: return "OPERATOR_LESS_THAN";
         case TK_LEQ: return "OPERATOR_LESS_EQUAL";
         case TK_GT: return "OPERATOR_GREATER_THAN";

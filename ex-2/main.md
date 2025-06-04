@@ -97,6 +97,8 @@
 <additive-expression> ::= <multiplicative-expression> // 加减表达式，eg. a + b - c
                         | <additive-expression> '+' <multiplicative-expression> // 加法表达式，eg. a + b
                         | <additive-expression> '-' <multiplicative-expression> // 减法表达式，eg. a - b
+                        | <additive-expression> '|' <multiplicative-expression> // 位或表达式，eg. a | b
+                        | <additive-expression> '&' <multiplicative-expression> // 位与表达式，eg. a & b
 <multiplicative-expression> ::= <primary-expression> // 乘除表达式，eg. a * b / c
                               | <multiplicative-expression> '*' <primary-expression> // 乘法表达式，eg. a * b
                               | <multiplicative-expression> '/' <primary-expression> // 除法表达式，eg. a / b

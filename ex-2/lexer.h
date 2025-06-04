@@ -25,11 +25,15 @@ enum TokenCode
     TK_STAR,     // *
     TK_DIVIDE,   // /
     TK_ASSIGN,   // =
+    TK_BITAND,   // &
+    TK_AND,      // &&
     TK_EQ,       // ==
     TK_LT,       // <
     TK_LEQ,      // <=
     TK_GT,       // >
     TK_GEQ,      // >=
+    TK_BITOR,    // |
+    TK_OR,       // ||
     /* 分隔符 */
     TK_OPENPA,   // (
     TK_CLOSEPA,  // )

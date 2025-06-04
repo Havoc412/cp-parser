@@ -262,6 +262,7 @@ void lexicalAnalysis(FILE *fp)
         load(code);
     }
 }
+
 // TAG ---------
 void outputFile(const string& filename) {
     // 创建输出⽬录
@@ -311,7 +312,7 @@ void outputFile(const string& filename) {
     }
     outFile.close();
 }
-// 新增: 输出错误⽇志到 error.log ⽂件
+
 void outputErrorLog(const string& filename) {
     string logFileName = filename + "-output/error.log";
     ofstream errorLog(logFileName);
@@ -324,7 +325,7 @@ void outputErrorLog(const string& filename) {
         cerr << "Error: Unable to open error log file " << logFileName << endl;
     }
 }
-// 修改: main 函数，调⽤ outputErrorLog
+
 int main()
 {
     // Input
