@@ -9,6 +9,65 @@ static TokenAttr g_token;               // 当前分析的Token
 static std::vector<ParserError> g_errors; // 语法错误列表
 static bool g_hasError = false;         // 是否有语法错误
 
+/*
+ * Mini语言BNF文法定义 - 分层结构
+ * ===========================
+ *
+ * 第1层：程序结构层
+ * <program> ::= <function-definition>+  // 程序由一个或多个函数定义组成
+ *
+ * 第2层：函数定义层
+ * <function-definition> ::= <type-specifier> <identifier> '(' <parameter-list>? ')' <compound-statement>
+ * <type-specifier> ::= 'int' | 'double' | 'float'  // 函数返回类型
+ * <parameter-list> ::= <parameter-declaration> | <parameter-list> ',' <parameter-declaration>
+ * <parameter-declaration> ::= <type-specifier> <identifier>
+ *
+ * 第3层：语句层
+ * <compound-statement> ::= '{' <statement-list>? '}'  // 复合语句（代码块）
+ * <statement-list> ::= <statement> | <statement-list> <statement>
+ * <statement> ::= <expression-statement>  // 表达式语句
+ *               | <compound-statement>    // 复合语句
+ *               | <selection-statement>   // 选择语句（if-else）
+ *               | <iteration-statement>   // 循环语句（while）
+ *               | <return-statement>      // 返回语句
+ *
+ * 第4层：具体语句定义
+ * <expression-statement> ::= <expression>? ';'
+ * <selection-statement> ::= 'if' '(' <expression> ')' <statement> ('else' <statement>)?
+ *                         | 'if' '(' <expression> ')' 'then' <statement> ('else' <statement>)?
+ * <iteration-statement> ::= 'while' '(' <expression> ')' <statement>
+ * <return-statement> ::= 'return' <expression>? ';'
+ *
+ * 第5层：表达式层
+ * <expression> ::= <assignment-expression>
+ * <assignment-expression> ::= <identifier> '=' <logical-or-expression> | <logical-or-expression>
+ *
+ * 第6层：逻辑表达式层
+ * <logical-or-expression> ::= <logical-and-expression> | <logical-or-expression> '||' <logical-and-expression>
+ * <logical-and-expression> ::= <equality-expression> | <logical-and-expression> '&&' <equality-expression>
+ * <equality-expression> ::= <relational-expression> | <equality-expression> '==' <relational-expression>
+ *
+ * 第7层：关系表达式层
+ * <relational-expression> ::= <additive-expression>
+ *                           | <relational-expression> '<' <additive-expression>
+ *                           | <relational-expression> '>' <additive-expression>
+ *                           | <relational-expression> '<=' <additive-expression>
+ *                           | <relational-expression> '>=' <additive-expression>
+ *
+ * 第8层：算术表达式层
+ * <additive-expression> ::= <multiplicative-expression>
+ *                         | <additive-expression> '+' <multiplicative-expression>
+ *                         | <additive-expression> '-' <multiplicative-expression>
+ * <multiplicative-expression> ::= <primary-expression>
+ *                               | <multiplicative-expression> '*' <primary-expression>
+ *                               | <multiplicative-expression> '/' <primary-expression>
+ *
+ * 第9层：基本表达式层
+ * <primary-expression> ::= <identifier>  // 标识符
+ *                        | <constant>    // 常量
+ *                        | '(' <expression> ')'  // 括号表达式
+ */
+
 /* 前向声明所有解析函数 */
 static bool program();
 static bool functionDefinition();
@@ -22,6 +81,7 @@ static bool expressionStatement();
 static bool selectionStatement();
 static bool iterationStatement();
 static bool returnStatement();
+static bool variableDeclaration();
 static bool expression();
 static bool assignmentExpression();
 static bool logicalOrExpression();
@@ -122,7 +182,7 @@ static bool program() {
                 skipUntil(syncSet);
             }
         } else {
-            // 遇到了非函数定义的开始，报错并跳过
+            // 遇到了非函数定义的「开始」，报错并跳过
             addDetailedError("程序中只能包含函数定义，遇到意外的标记");
             std::vector<TokenCode> syncSet = {KW_INT, KW_DOUBLE, KW_FLOAT, TK_EOF};
             skipUntil(syncSet);
@@ -133,6 +193,7 @@ static bool program() {
     return success;
 }
 
+// 第2层：函数定义层
 // <function-definition> ::= <type-specifier> <identifier> '(' <parameter-list>? ')' <compound-statement>
 static bool functionDefinition() {
     if (!typeSpecifier()) {
@@ -169,6 +230,7 @@ static bool functionDefinition() {
     return true;
 }
 
+// 第2层：函数定义层
 // <type-specifier> ::= 'int' | 'double' | 'float'
 static bool typeSpecifier() {
     if (match(KW_INT) || match(KW_DOUBLE) || match(KW_FLOAT)) {
@@ -177,6 +239,7 @@ static bool typeSpecifier() {
     return false;
 }
 
+// 第2层：函数定义层
 // <parameter-list> ::= <parameter-declaration> | <parameter-list> ',' <parameter-declaration>
 static bool parameterList() {
     if (!parameterDeclaration()) {
@@ -193,6 +256,7 @@ static bool parameterList() {
     return true;
 }
 
+// 第2层：函数定义层
 // <parameter-declaration> ::= <type-specifier> <identifier>
 static bool parameterDeclaration() {
     if (!typeSpecifier()) {
@@ -209,6 +273,7 @@ static bool parameterDeclaration() {
     return true;
 }
 
+// 第3层：语句层
 // <compound-statement> ::= '{' <statement-list>? '}'
 static bool compoundStatement() {
     if (!match(TK_BEGIN)) {
@@ -229,6 +294,7 @@ static bool compoundStatement() {
     return true;
 }
 
+// 第3层：语句层
 // <statement-list> ::= <statement> | <statement-list> <statement>
 static bool statementList() {
     bool success = true;
@@ -254,7 +320,8 @@ static bool statementList() {
     return success;
 }
 
-// <statement> ::= <expression-statement> | <compound-statement> | <selection-statement> | <iteration-statement> | <return-statement>
+// 第3层：语句层
+// <statement> ::= <expression-statement> | <compound-statement> | <selection-statement> | <iteration-statement> | <return-statement> | <variable-declaration>
 static bool statement() {
     switch (g_token.code) {
         case TK_BEGIN:
@@ -265,11 +332,16 @@ static bool statement() {
             return iterationStatement();
         case KW_RETURN:
             return returnStatement();
+        case KW_INT:
+        case KW_DOUBLE:
+        case KW_FLOAT:
+            return variableDeclaration();
         default:
             return expressionStatement();
     }
 }
 
+// 第4层：具体语句定义
 // <expression-statement> ::= <expression>? ';'
 static bool expressionStatement() {
     if (g_token.code != TK_SEMOCOLOM) {
@@ -286,6 +358,7 @@ static bool expressionStatement() {
     return true;
 }
 
+// 第4层：具体语句定义
 // <selection-statement> ::= 'if' '(' <expression> ')' <statement> ('else' <statement>)?
 //                        | 'if' '(' <expression> ')' 'then' <statement> ('else' <statement>)?
 static bool selectionStatement() {
@@ -333,6 +406,7 @@ static bool selectionStatement() {
     return true;
 }
 
+// 第4层：具体语句定义
 // <iteration-statement> ::= 'while' '(' <expression> ')' <statement>
 static bool iterationStatement() {
     if (!match(KW_WHILE)) {
@@ -363,6 +437,7 @@ static bool iterationStatement() {
     return true;
 }
 
+// 第4层：具体语句定义
 // <return-statement> ::= 'return' <expression>? ';'
 static bool returnStatement() {
     if (!match(KW_RETURN)) {
@@ -385,11 +460,13 @@ static bool returnStatement() {
     return true;
 }
 
+// 第5层：表达式层
 // <expression> ::= <assignment-expression>
 static bool expression() {
     return assignmentExpression();
 }
 
+// 第5层：表达式层
 // <assignment-expression> ::= <identifier> '=' <logical-or-expression> | <logical-or-expression>
 static bool assignmentExpression() {
     if (g_token.code == TK_IDENT) {
@@ -412,18 +489,21 @@ static bool assignmentExpression() {
     return logicalOrExpression();
 }
 
+// 第6层：逻辑表达式层
 // <logical-or-expression> ::= <logical-and-expression> | <logical-or-expression> '||' <logical-and-expression>
 // 注意：由于Mini语言语法中没有定义||运算符，这里简化处理
 static bool logicalOrExpression() {
     return logicalAndExpression();
 }
 
+// 第6层：逻辑表达式层
 // <logical-and-expression> ::= <equality-expression> | <logical-and-expression> '&&' <equality-expression>
 // 注意：由于Mini语言语法中没有定义&&运算符，这里简化处理
 static bool logicalAndExpression() {
     return equalityExpression();
 }
 
+// 第6层：逻辑表达式层
 // <equality-expression> ::= <relational-expression> | <equality-expression> '==' <relational-expression>
 static bool equalityExpression() {
     if (!relationalExpression()) {
@@ -441,6 +521,7 @@ static bool equalityExpression() {
     return true;
 }
 
+// 第7层：关系表达式层
 // <relational-expression> ::= <additive-expression>
 //                          | <relational-expression> '<' <additive-expression>
 //                          | <relational-expression> '>' <additive-expression>
@@ -463,6 +544,7 @@ static bool relationalExpression() {
     return true;
 }
 
+// 第8层：算术表达式层
 // <additive-expression> ::= <multiplicative-expression>
 //                        | <additive-expression> '+' <multiplicative-expression>
 //                        | <additive-expression> '-' <multiplicative-expression>
@@ -482,6 +564,7 @@ static bool additiveExpression() {
     return true;
 }
 
+// 第8层：算术表达式层
 // <multiplicative-expression> ::= <primary-expression>
 //                              | <multiplicative-expression> '*' <primary-expression>
 //                              | <multiplicative-expression> '/' <primary-expression>
@@ -501,6 +584,7 @@ static bool multiplicativeExpression() {
     return true;
 }
 
+// 第9层：基本表达式层
 // <primary-expression> ::= <identifier>
 //                       | <constant>
 //                       | '(' <expression> ')'
@@ -527,6 +611,35 @@ static bool primaryExpression() {
         addDetailedError("预期标识符、常量或左括号 '('");
         return false;
     }
+}
+
+// <variable-declaration> ::= <type-specifier> <identifier> ('=' <expression>)? ';'
+static bool variableDeclaration() {
+    if (!typeSpecifier()) {
+        addDetailedError("变量声明缺少类型说明符");
+        return false;
+    }
+    
+    if (!isToken(TK_IDENT)) {
+        addDetailedError("变量声明缺少变量名");
+        return false;
+    }
+    match(TK_IDENT);
+    
+    // 可选的赋值表达式
+    if (match(TK_ASSIGN)) {
+        if (!expression()) {
+            addDetailedError("赋值运算符 '=' 后缺少有效的表达式");
+            return false;
+        }
+    }
+    
+    if (!match(TK_SEMOCOLOM)) {
+        addDetailedError("变量声明缺少分号 ';'");
+        return false;
+    }
+    
+    return true;
 }
 
 /* INFO 接口实现 */

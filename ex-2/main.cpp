@@ -228,20 +228,33 @@ int main(int argc, char* argv[]) {
             std::cout << "开始分析...\n";
         }
         
+        // 首先收集所有token用于输出
+        {
+            // 保存当前文件位置
+            long filePos = ftell(fp);
+            // 重置文件指针到开头
+            rewind(fp);
+            // 重新初始化词法分析器
+            initLexer(fp);
+            
+            TokenAttr token;
+            do {
+                token = getNextToken();
+                tokenList.push_back(token);
+            } while (token.code != TK_EOF);
+            
+            // 恢复文件位置
+            fseek(fp, filePos, SEEK_SET);
+            // 重新初始化解析器
+            initParser(fp);
+        }
+        
         // 执行语法分析
         ParserResult result = parse();
         parseSuccess = (result == RESULT_SUCCESS);
-        
+
         // 保存语法错误信息
         parseErrors = getParserErrors();
-        
-        // 收集词法分析产生的token（为了输出token列表）
-        resetParser();
-        TokenAttr token;
-        do {
-            token = getNextToken();
-            tokenList.push_back(token);
-        } while (token.code != TK_EOF);
         
         // 关闭文件
         fclose(fp);
