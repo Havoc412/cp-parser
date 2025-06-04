@@ -1,6 +1,6 @@
 # 第一部分 语言语法规则（自然语言描述）
 
-我简单构造的Mini语言是一种类C语言的简化版本，支持基本的语法结构。其主要语法规则如下：
+我简单构造的Mini语言是一种类C语言的简化版本，基于上一次词法分析的任务，支持基本的语法结构。其主要语法规则如下：
 
 1. **词法元素**：
    - 关键字：int、double、float、if、then、else、return、while
@@ -19,76 +19,103 @@
 
 # 第二部分 文法定义
 
-其文法可以用BNF（巴科斯范式）表示如下：
+其文法可以用 BNF 表示如下：
+
+## 1. 程序结构层
+定义整个程序的基本结构
+1. 程序由一个或多个函数定义组成
+```
+<program> ::= <function-definition>+  // 程序由一个或多个函数定义组成
+```
+
+## 2. 函数定义层
+定义函数的结构
+```
+<function-definition> ::= <type-specifier> <identifier> '(' <parameter-list>? ')' <compound-statement> // 函数定义，eg. int func(int a, int b) { ... }
+<type-specifier> ::= 'int' | 'double' | 'float'  // 函数返回类型
+<parameter-list> ::= <parameter-declaration> | <parameter-list> ',' <parameter-declaration> // 参数列表，eg. int a, int b
+<parameter-declaration> ::= <type-specifier> <identifier> // 参数声明，eg. int a, int b
+```
+
+## 3. 语句层
+定义各种语句结构
 
 ```
-<program> ::= <function-definition>+
-
-<function-definition> ::= <type-specifier> <identifier> '(' <parameter-list>? ')' <compound-statement>
-
-<type-specifier> ::= 'int' | 'double' | 'float'
-
-<parameter-list> ::= <parameter-declaration> | <parameter-list> ',' <parameter-declaration>
-
-<parameter-declaration> ::= <type-specifier> <identifier>
-
-<compound-statement> ::= '{' <statement-list>? '}'
-
+<compound-statement> ::= '{' <statement-list>? '}'  // 复合语句（代码块）
 <statement-list> ::= <statement> | <statement-list> <statement>
+<statement> ::= <expression-statement>  // 表达式语句
+              | <compound-statement>    // 复合语句
+              | <selection-statement>   // 选择语句（if-else）
+              | <iteration-statement>   // 循环语句（while）
+              | <return-statement>      // 返回语句
+```
 
-<statement> ::= <expression-statement>
-              | <compound-statement>
-              | <selection-statement>
-              | <iteration-statement>
-              | <return-statement>
+## 4. 具体语句定义
+定义各种具体语句的语法；
+1. 句末必须以分号结束；
+2. 循环/分支语句的条件放置于括号内；
+3. 返回语句必须以return结束；
 
+```
 <expression-statement> ::= <expression>? ';'
-
 <selection-statement> ::= 'if' '(' <expression> ')' <statement> ('else' <statement>)?
-
 <iteration-statement> ::= 'while' '(' <expression> ')' <statement>
-
 <return-statement> ::= 'return' <expression>? ';'
+```
 
+## 5. 表达式层
+定义表达式的层次结构
+```
 <expression> ::= <assignment-expression>
+<assignment-expression> ::= <identifier> '=' <logical-or-expression> | <logical-or-expression> // 赋值表达式，eg. a = b + c
+```
 
-<assignment-expression> ::= <identifier> '=' <logical-or-expression> | <logical-or-expression>
+## 6. 逻辑表达式层
+定义逻辑运算的优先级
+```
+<logical-or-expression> ::= <logical-and-expression> | <logical-or-expression> '||' <logical-and-expression> // 逻辑或表达式，eg. a || b
+<logical-and-expression> ::= <equality-expression> | <logical-and-expression> '&&' <equality-expression> // 逻辑与表达式，eg. a && b
+<equality-expression> ::= <relational-expression> | <equality-expression> '==' <relational-expression> // 相等表达式，eg. a == b
+```
 
-<logical-or-expression> ::= <logical-and-expression> | <logical-or-expression> '||' <logical-and-expression>
+## 7. 关系表达式层
+定义关系运算
+```
+<relational-expression> ::= <additive-expression> // 关系表达式，eg. a < b + c
+                          | <relational-expression> '<' <additive-expression> // 小于表达式，eg. a < b
+                          | <relational-expression> '>' <additive-expression> // 大于表达式，eg. a > b
+                          | <relational-expression> '<=' <additive-expression> // 小于等于表达式，eg. a <= b
+                          | <relational-expression> '>=' <additive-expression> // 大于等于表达式，eg. a >= b
+```
 
-<logical-and-expression> ::= <equality-expression> | <logical-and-expression> '&&' <equality-expression>
+## 8. 算术表达式层
+定义算术运算的优先级
+```
+<additive-expression> ::= <multiplicative-expression> // 加减表达式，eg. a + b - c
+                        | <additive-expression> '+' <multiplicative-expression> // 加法表达式，eg. a + b
+                        | <additive-expression> '-' <multiplicative-expression> // 减法表达式，eg. a - b
+<multiplicative-expression> ::= <primary-expression> // 乘除表达式，eg. a * b / c
+                              | <multiplicative-expression> '*' <primary-expression> // 乘法表达式，eg. a * b
+                              | <multiplicative-expression> '/' <primary-expression> // 除法表达式，eg. a / b
+```
 
-<equality-expression> ::= <relational-expression> | <equality-expression> '==' <relational-expression>
+## 9. 基本表达式层
+定义最基本的表达式元素
+```
+<primary-expression> ::= <identifier>  // 标识符，eg. a
+                       | <constant>    // 常量，eg. 10
+                       | '(' <expression> ')'  // 括号表达式，eg. (a + b)
+```
 
-<relational-expression> ::= <additive-expression>
-                          | <relational-expression> '<' <additive-expression>
-                          | <relational-expression> '>' <additive-expression>
-                          | <relational-expression> '<=' <additive-expression>
-                          | <relational-expression> '>=' <additive-expression>
-
-<additive-expression> ::= <multiplicative-expression>
-                        | <additive-expression> '+' <multiplicative-expression>
-                        | <additive-expression> '-' <multiplicative-expression>
-
-<multiplicative-expression> ::= <primary-expression>
-                              | <multiplicative-expression> '*' <primary-expression>
-                              | <multiplicative-expression> '/' <primary-expression>
-
-<primary-expression> ::= <identifier>
-                       | <constant>
-                       | '(' <expression> ')'
-
-<identifier> ::= <letter> (<letter> | <digit>)*
-
-<constant> ::= <integer-constant> | <floating-constant>
-
-<integer-constant> ::= <digit>+
-
-<floating-constant> ::= <digit>+ '.' <digit>*
-
-<letter> ::= 'a' | 'b' | ... | 'z' | 'A' | 'B' | ... | 'Z'
-
-<digit> ::= '0' | '1' | ... | '9'
+## 10. 词法元素层
+定义基本的词法单元
+```
+<identifier> ::= <letter> (<letter> | <digit>)*  // 标识符：字母开头，后跟字母或数字，eg. a, b, c
+<constant> ::= <integer-constant> | <floating-constant>  // 常量：整数或浮点数，eg. 10, 3.14
+<integer-constant> ::= <digit>+  // 整数常量：一个或多个数字，eg. 10
+<floating-constant> ::= <digit>+ '.' <digit>*  // 浮点常量：数字.数字，eg. 3.14
+<letter> ::= 'a' | 'b' | ... | 'z' | 'A' | 'B' | ... | 'Z'  // 字母，eg. a, b, c
+<digit> ::= '0' | '1' | ... | '9'  // 数字，eg. 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
 ```
 
 # 第三部分 语法分析算法
@@ -109,21 +136,34 @@
 5. **构建语法树**：在分析过程中，逐步构建抽象语法树
 6. **错误处理**：当发生语法错误时，尝试恢复并继续分析
 
-伪代码示例（以<expression-statement>为例）：
-
 ```
-function parseExpressionStatement():
-    if currentToken is not ';':
-        expr = parseExpression()
-    match(';')  // 确保语句以分号结束
-    return new ExpressionStatement(expr)
+/* 表达式语句解析示例 */
+bool parseExpressionStatement(void) {
+    if (g_token.code != TK_SEMOCOLOM) {
+        if (!expression()) {
+            return false;
+        }
+    }
+    
+    if (!match(TK_SEMOCOLOM)) {
+        addError("Expected ';' after expression");
+        return false;
+    }
+    
+    return true;
+}
 
-function match(expectedToken):
-    if currentToken == expectedToken:
-        currentToken = getNextToken()
-    else:
-        reportError("Expected " + expectedToken)
+/* 匹配特定类型的Token */
+bool match(TokenCode code) {
+    if (g_token.code == code) {
+        g_token = getNextToken();
+        return true;
+    }
+    addError("Expected token: " + getTokenName(code));
+    return false;
+}
 ```
+
 
 # 第四部分 出错处理出口
 
@@ -147,10 +187,12 @@ function match(expectedToken):
 错误处理的伪代码示例：
 
 ```
-function recoverFromError(syncSet):
-    reportError("Syntax error at line " + currentToken.line)
-    while currentToken not in syncSet and currentToken != EOF:
-        currentToken = getNextToken()
+void recoverFromError(syncSet) {
+    reportError("Syntax error at line " + currentToken.line);
+    while (currentToken not in syncSet and currentToken != EOF) {
+        currentToken = getNextToken();
+    }
+}
 ```
 
 # 第五部分 测试计划（报告）
@@ -159,27 +201,165 @@ function recoverFromError(syncSet):
 
 1. **单元测试**：
    - 词法分析器测试：测试各类Token的识别正确性
+     * 关键字识别（int, if, else, while, return等）
+     * 运算符识别（+, -, *, /, =, ==, <, <=, >, >=）
+     * 分隔符识别（(), [], {}, ,, ;）
+     * 标识符识别（字母开头的字母数字序列）
+     * 常量识别（整数和浮点数）
+     * 注释识别（//开头的单行注释）
    - 语法分析器测试：测试各种语法结构的解析
+     * 函数定义和参数列表
+     * 复合语句和语句列表
+     * 条件语句（if-else）
+     * 循环语句（while）
+     * 返回语句
+     * 表达式语句
    - 错误处理测试：测试在不同错误情况下的恢复能力
+     * 缺少分号的语句
+     * 缺少括号的条件/循环语句
+     * 缺少大括号的代码块
+     * 未定义的运算符使用
 
 2. **集成测试**：
    - 词法分析器与语法分析器的集成测试
+     * 基本程序结构测试（test1.txt）
+     * 错误程序恢复测试（test2.txt）
+     * 复杂程序功能测试（test3.txt）
    - 整个编译前端的集成测试
+     * 递归函数调用
+     * 嵌套条件语句
+     * 复杂表达式计算
 
 3. **测试用例设计**：
-   - 合法程序测试：包含Mini语言的各种语法特性
-   - 边界情况测试：测试极端情况下的行为
-   - 错误程序测试：包含各种常见错误的程序
+   - 合法程序测试：
+     * 基本语法结构（变量声明、赋值、条件、循环）
+     * 函数定义和调用
+     * 复杂表达式计算
+   - 边界情况测试：
+     * 空函数体
+     * 单语句代码块
+     * 最大嵌套深度
+   - 错误程序测试：
+     * 语法错误（缺少分号、括号等）
+     * 语义错误（未定义运算符使用）
+     * 结构错误（不匹配的括号等）
 
 4. **测试环境**：
-   - 操作系统：Windows 10、macOS、Linux
-   - 编译器：GCC 11.2.0、Clang 13.0.0
-   - 测试工具：GoogleTest、Valgrind
+   - 操作系统：macOS
+   - 编译器：Clang 13.0.0
+   - 测试工具：自定义测试框架
+   - 测试数据：包含test1.txt、test2.txt、test3.txt等测试用例
 
 5. **测试结果分析**：
-   - 功能完整性：确保所有语法特性都能正确解析
-   - 错误处理能力：确保编译器能够处理各种错误情况
-   - 性能评估：测试编译器在处理大型程序时的性能
+   - 功能完整性：
+     * 所有语法特性都能正确解析
+     * 错误检测和恢复机制有效
+     * 支持复杂的程序结构
+   - 错误处理能力：
+     * 能够准确报告错误位置和类型
+     * 能够从错误中恢复并继续分析
+     * 提供有意义的错误信息
+   - 性能评估：
+     * 词法分析速度
+     * 语法分析效率
+     * 内存使用情况
+   - 测试覆盖率：
+     * 语句覆盖率
+     * 分支覆盖率
+     * 错误处理路径覆盖率
 
-通过上述测试计划，我们将全面验证Mini语言编译器的功能和性能，确保它能够稳定、高效地完成编译任务。
+6. **测试案例解析**：
+
+   a. **合法程序示例（test1.txt）**：
+      ```
+      int main() {
+          int a = 10;
+          int b = 20;
+          
+          if (a < b) {
+              a = a + 1;
+          } else {
+              b = b - 1;
+          }
+          
+          while (a < b) {
+              a = a + 1;
+          }
+          
+          return 0;
+      }
+      ```
+      该程序展示了以下合法语法特性：
+      - 函数定义和参数列表
+      - 变量声明和初始化
+      - 条件语句（if-else）
+      - 循环语句（while）
+      - 算术表达式
+      - 比较表达式
+      - 返回语句
+
+   b. **语法错误示例（test2.txt）**：
+      ```
+      int main() {
+          int a = 10    // 缺少分号
+          int b = 20;   
+          
+          if a < b {    // 缺少括号
+              a = a + 1;
+          } else {
+              b = b - 1  // 缺少分号
+          }
+          
+          while (a < b) 
+              a = a + 1;  // 缺少大括号
+          
+          return 0;
+      }
+      ```
+      该程序包含以下语法错误：
+      - 语句缺少分号
+      - 条件语句缺少括号
+      - 循环语句缺少大括号
+      错误处理机制能够：
+      - 检测并报告错误位置
+      - 继续分析后续代码
+      - 提供清晰的错误信息
+
+   c. **语义错误示例（test3.txt）**：
+      ```
+      int gcd(int a, int b) {
+          while (b != 0) {
+              int temp = b;
+              b = a % b;  // 使用未定义的%运算符
+              a = temp;
+          }
+          return a;
+      }
+      ```
+      该程序包含以下语义错误：
+      - 使用未定义的运算符（%）
+      - 使用未定义的运算符（!=）
+      错误处理机制能够：
+      - 识别未定义的运算符
+      - 报告具体的错误位置
+      - 提供错误类型信息
+
+7. **错误处理机制验证**：
+
+   a. **词法错误处理**：
+      - 能够识别并报告非法字符
+      - 能够处理格式错误的数字
+      - 能够继续分析后续代码
+
+   b. **语法错误处理**：
+      - 能够检测缺少的分号、括号等
+      - 能够从错误中恢复并继续分析
+      - 能够提供准确的错误位置信息
+
+   c. **语义错误处理**：
+      - 能够识别未定义的运算符
+      - 能够检测类型不匹配
+      - 能够提供有意义的错误信息
+
+通过以上测试案例的详细解析，我们可以验证编译器的错误处理能力和恢复机制的有效性。这些测试案例涵盖了常见的编程错误，有助于确保编译器在实际使用中的可靠性。
 
