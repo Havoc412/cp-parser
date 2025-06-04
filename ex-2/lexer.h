@@ -69,7 +69,8 @@ struct ErrorInfo {
     std::string message;    // 错误信息
 };
 
-/* 词法分析器接口 */
+/* INFO 词法分析器接口 */
+
 // 初始化词法分析器
 void initLexer(FILE* fp);
 

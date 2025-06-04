@@ -17,7 +17,8 @@ struct ParserError {
     std::string message;    // 错误信息
 };
 
-// 语法分析器接口
+/* INFO 语法分析器接口 */
+
 // 初始化语法分析器
 void initParser(FILE* fp);
 

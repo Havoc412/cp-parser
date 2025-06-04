@@ -24,14 +24,17 @@ static const TokenCode keyWordCodes[] = {
     KW_INT, KW_DOUBLE, KW_FLOAT, KW_IF, KW_THEN, KW_ELSE, KW_RETURN, KW_WHILE
 };
 
-/* 数字后可跟随的字符 */
+/**
+ * 数字后可跟随的字符
+ * 用于“吞噬”错误的数字词法。
+*/
 static const int numberNextPassNum = 16;
 static const char numberNextPass[100] = {
     '+', '-', '*', '/', '=', '>', '<', '&', '|',
     '^', '%', '?', ')', ',', ';', ']'
 };
 
-/* 符号表 */
+/* INFO 符号表 */
 static std::map<TokenCode, int> tokenCodeMap;
 static std::map<std::string, int> constantsMap;
 
@@ -296,7 +299,7 @@ void initLexer(FILE* fp) {
 }
 
 TokenAttr getNextToken() {
-    if (g_hasUnget) {
+    if (g_hasUnget) {  // 回退 token
         g_hasUnget = false;
         return g_lastToken;
     }

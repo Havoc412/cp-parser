@@ -32,7 +32,8 @@ static bool additiveExpression();
 static bool multiplicativeExpression();
 static bool primaryExpression();
 
-/* 辅助函数 */
+/* INFO 辅助函数 */
+
 // 添加语法错误
 static void addError(const std::string& message) {
     ParserError error = { g_token.line, message };
@@ -67,7 +68,7 @@ static void skipUntil(std::vector<TokenCode> syncSet) {
     }
 }
 
-/* 递归下降分析函数实现 */
+/* INFO 递归下降分析函数实现 */
 
 // <program> ::= <function-definition>+
 static bool program() {
@@ -458,7 +459,8 @@ static bool primaryExpression() {
     }
 }
 
-/* 接口实现 */
+/* INFO 接口实现 */
+
 void initParser(FILE* fp) {
     initLexer(fp);
     g_errors.clear();

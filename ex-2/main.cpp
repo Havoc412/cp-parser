@@ -186,8 +186,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
+    // INFO 仅进行词法分析
     if (lexOnly) {
-        // 仅进行词法分析
         // 初始化词法分析器
         initLexer(fp);
         
@@ -214,8 +214,7 @@ int main(int argc, char* argv[]) {
         
         // 输出分析结果
         outputResults(filename, true);
-    } else {
-        // 进行词法和语法分析
+    } else { // 进行词法和语法分析
         // 初始化解析器
         initParser(fp);
         
