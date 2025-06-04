@@ -131,7 +131,7 @@ static TokenAttr processToken() {
             code = TK_IDENT;
         }
     }
-    else if (isdigit(ch)) {  // 数字常量
+    else if (isdigit(ch)) {  // 正数
         token = ch;
         int dotCount = 0;
         
@@ -177,7 +177,56 @@ static TokenAttr processToken() {
         
         switch (ch) {
             case '+': code = TK_PLUS; break;
-            case '-': code = TK_MINUS; break;
+            case '-': 
+                // 检查是否为负数
+                ch = fgetc(g_fp);
+                if (isdigit(ch)) {
+                    // 处理负数
+                    token += ch;  // 添加数字到token
+                    int dotCount = 0;
+                    
+                    while (true) {
+                        ch = fgetc(g_fp);
+                        if (!(isdigit(ch) || ch == '.')) {
+                            break;
+                        }
+                        
+                        if (ch == '.') {
+                            dotCount++;
+                        }
+                        
+                        token += ch;
+                    }
+                    
+                    // 检查数字格式是否正确
+                    if (!checkNumberNext(ch)) {
+                        // 非法后缀，继续读取错误标记
+                        token += ch;
+                        while (true) {
+                            ch = fgetc(g_fp);
+                            if (!(isLetter(ch) || isdigit(ch))) {
+                                ungetc(ch, g_fp);
+                                break;
+                            }
+                            token += ch;
+                        }
+                        code = TK_UNDEF;
+                        addError("Invalid number format: " + token);
+                    }
+                    else if (dotCount > 1) {
+                        code = TK_UNDEF;
+                        addError("Invalid number format (multiple decimal points): " + token);
+                    }
+                    else {
+                        ungetc(ch, g_fp);  // 回退用于检查的字符
+                        code = (dotCount == 1) ? TK_DOUBLE : TK_INT;
+                    }
+                } else {
+                    // 不是负数，是减号运算符
+                    ungetc(ch, g_fp);
+                    code = TK_MINUS;
+                }
+                break;
             case '*': code = TK_STAR; break;
             case '/': {
                 // 检查是否为注释

@@ -31,10 +31,10 @@ mkdir -p tests/test3.txt-output
 echo "测试文件 1 (正确语法)..."
 ./parser tests/test1.txt
 
-# echo "测试文件 2 (含语法错误)..."
-# ./parser tests/test2.txt
+echo "测试文件 2 (含语法错误)..."
+./parser tests/test2.txt
 
-# echo "测试文件 3 (含多种语法错误)..."
-# ./parser tests/test3.txt
+echo "测试文件 3 (含多种语法错误)..."
+./parser tests/test3.txt
 
 echo "测试完成，请查看输出目录中的错误报告。" 
