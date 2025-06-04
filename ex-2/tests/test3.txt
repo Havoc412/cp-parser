@@ -34,7 +34,7 @@ int main() {
     c = factorial(a);
     
     // 嵌套条件
-    if (a < b) {
+    if (a < b) then {
         if (a > 0) {
             c = a + b;
         } else {

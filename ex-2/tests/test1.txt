@@ -1,6 +1,6 @@
 int main() {
     int a = 10;
-    int b = 20;
+    int b = -20;
     
     // 传统 if-else 结构
     if (a < b) {

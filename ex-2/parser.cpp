@@ -68,6 +68,8 @@ static bool g_hasError = false;         // 是否有语法错误
  * <primary-expression> ::= <identifier>  // 标识符
  *                        | <constant>    // 常量
  *                        | '(' <expression> ')'  // 括号表达式
+ *                        | <identifier> '(' <argument-list>? ')' // 函数调用
+ * <argument-list> ::= <expression> | <argument-list> ',' <expression>
  */
 
 /* 前向声明所有解析函数 */
@@ -93,6 +95,8 @@ static bool relationalExpression();
 static bool additiveExpression();
 static bool multiplicativeExpression();
 static bool primaryExpression();
+static bool functionCall();
+static bool argumentList();
 
 /* INFO 辅助函数 */
 
@@ -593,9 +597,20 @@ static bool multiplicativeExpression() {
 // <primary-expression> ::= <identifier>
 //                       | <constant>
 //                       | '(' <expression> ')'
+//                       | <identifier> '(' <argument-list>? ')' // 函数调用
 static bool primaryExpression() {
     if (g_token.code == TK_IDENT) {
+        TokenAttr savedToken = g_token;
         match(TK_IDENT);
+        
+        // 检查是否为函数调用
+        if (g_token.code == TK_OPENPA) {
+            // 回退Token，以便在functionCall中正确识别函数名
+            ungetToken();
+            g_token = savedToken;
+            return functionCall();
+        }
+        
         return true;
     } else if (g_token.code == TK_INT || g_token.code == TK_DOUBLE) {
         match(g_token.code);
@@ -643,6 +658,53 @@ static bool variableDeclaration() {
     if (!match(TK_SEMOCOLOM)) {
         addDetailedError("变量声明缺少分号 ';'");
         return false;
+    }
+    
+    return true;
+}
+
+// 函数调用
+// <function-call> ::= <identifier> '(' <argument-list>? ')'
+static bool functionCall() {
+    if (!isToken(TK_IDENT)) {
+        addDetailedError("函数调用缺少函数名");
+        return false;
+    }
+    match(TK_IDENT);
+    
+    if (!match(TK_OPENPA)) {
+        addDetailedError("函数名后缺少左括号 '('");
+        return false;
+    }
+    
+    // 可选的参数列表
+    if (!isToken(TK_CLOSEPA)) {
+        if (!argumentList()) {
+            return false;
+        }
+    }
+    
+    if (!match(TK_CLOSEPA)) {
+        addDetailedError("函数调用缺少右括号 ')'");
+        return false;
+    }
+    
+    return true;
+}
+
+// 参数列表
+// <argument-list> ::= <expression> | <argument-list> ',' <expression>
+static bool argumentList() {
+    if (!expression()) {
+        addDetailedError("函数调用参数无效");
+        return false;
+    }
+    
+    while (match(TK_COMMA)) {
+        if (!expression()) {
+            addDetailedError("逗号后缺少有效的参数表达式");
+            return false;
+        }
     }
     
     return true;
