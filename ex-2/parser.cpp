@@ -30,6 +30,7 @@ static bool g_hasError = false;         // 是否有语法错误
  *               | <selection-statement>   // 选择语句（if-else）
  *               | <iteration-statement>   // 循环语句（while）
  *               | <return-statement>      // 返回语句
+ *               | <variable-declaration>  // 变量声明语句
  *
  * 第4层：具体语句定义
  * <expression-statement> ::= <expression>? ';'
@@ -37,6 +38,7 @@ static bool g_hasError = false;         // 是否有语法错误
  *                         | 'if' '(' <expression> ')' 'then' <statement> ('else' <statement>)?
  * <iteration-statement> ::= 'while' '(' <expression> ')' <statement>
  * <return-statement> ::= 'return' <expression>? ';'
+ * <variable-declaration> ::= <type-specifier> <identifier> ('=' <expression>)? ';'
  *
  * 第5层：表达式层
  * <expression> ::= <assignment-expression>
@@ -170,8 +172,12 @@ static void skipUntil(std::vector<TokenCode> syncSet) {
 static bool program() {
     bool success = true;
     
+    // 获取第一个token
+    g_token = getNextToken();
+    
     while (g_token.code != TK_EOF) {
         // 检查是否为函数定义的开始（类型说明符）
+        std::cout << "program: " << getTokenName(g_token.code) << std::endl;
         if (g_token.code == KW_INT || g_token.code == KW_DOUBLE || g_token.code == KW_FLOAT) {
             if (!functionDefinition()) {
                 success = false;
@@ -273,7 +279,7 @@ static bool parameterDeclaration() {
     return true;
 }
 
-// 第3层：语句层
+// 函数体的大括号结构
 // <compound-statement> ::= '{' <statement-list>? '}'
 static bool compoundStatement() {
     if (!match(TK_BEGIN)) {
@@ -294,7 +300,7 @@ static bool compoundStatement() {
     return true;
 }
 
-// 第3层：语句层
+// 函数体的内部语句列表
 // <statement-list> ::= <statement> | <statement-list> <statement>
 static bool statementList() {
     bool success = true;
@@ -320,7 +326,7 @@ static bool statementList() {
     return success;
 }
 
-// 第3层：语句层
+// INFO 不同的语句入口
 // <statement> ::= <expression-statement> | <compound-statement> | <selection-statement> | <iteration-statement> | <return-statement> | <variable-declaration>
 static bool statement() {
     switch (g_token.code) {
@@ -341,7 +347,7 @@ static bool statement() {
     }
 }
 
-// 第4层：具体语句定义
+// 表达式语句
 // <expression-statement> ::= <expression>? ';'
 static bool expressionStatement() {
     if (g_token.code != TK_SEMOCOLOM) {
@@ -358,7 +364,7 @@ static bool expressionStatement() {
     return true;
 }
 
-// 第4层：具体语句定义
+// 选择语句
 // <selection-statement> ::= 'if' '(' <expression> ')' <statement> ('else' <statement>)?
 //                        | 'if' '(' <expression> ')' 'then' <statement> ('else' <statement>)?
 static bool selectionStatement() {
@@ -383,16 +389,15 @@ static bool selectionStatement() {
     }
     
     // 检查是否有 then 关键字
-    if (match(KW_THEN)) {
-        if (!statement()) {
+    bool hasThen = match(KW_THEN);
+    
+    if (!statement()) {
+        if (hasThen) {
             addDetailedError("'then'后应有语句块");
-            return false;
-        }
-    } else {
-        if (!statement()) {
+        } else {
             addDetailedError("if语句体缺失或无效");
-            return false;
         }
+        return false;
     }
     
     // 可选的else部分
@@ -406,7 +411,7 @@ static bool selectionStatement() {
     return true;
 }
 
-// 第4层：具体语句定义
+// 循环语句
 // <iteration-statement> ::= 'while' '(' <expression> ')' <statement>
 static bool iterationStatement() {
     if (!match(KW_WHILE)) {
@@ -437,7 +442,7 @@ static bool iterationStatement() {
     return true;
 }
 
-// 第4层：具体语句定义
+// 返回语句
 // <return-statement> ::= 'return' <expression>? ';'
 static bool returnStatement() {
     if (!match(KW_RETURN)) {
@@ -460,13 +465,13 @@ static bool returnStatement() {
     return true;
 }
 
-// 第5层：表达式层
+// 表达式
 // <expression> ::= <assignment-expression>
 static bool expression() {
     return assignmentExpression();
 }
 
-// 第5层：表达式层
+// 赋值表达式
 // <assignment-expression> ::= <identifier> '=' <logical-or-expression> | <logical-or-expression>
 static bool assignmentExpression() {
     if (g_token.code == TK_IDENT) {
@@ -489,21 +494,21 @@ static bool assignmentExpression() {
     return logicalOrExpression();
 }
 
-// 第6层：逻辑表达式层
+// 逻辑或表达式
 // <logical-or-expression> ::= <logical-and-expression> | <logical-or-expression> '||' <logical-and-expression>
 // 注意：由于Mini语言语法中没有定义||运算符，这里简化处理
 static bool logicalOrExpression() {
     return logicalAndExpression();
 }
 
-// 第6层：逻辑表达式层
+// 逻辑与表达式
 // <logical-and-expression> ::= <equality-expression> | <logical-and-expression> '&&' <equality-expression>
 // 注意：由于Mini语言语法中没有定义&&运算符，这里简化处理
 static bool logicalAndExpression() {
     return equalityExpression();
 }
 
-// 第6层：逻辑表达式层
+// 相等表达式
 // <equality-expression> ::= <relational-expression> | <equality-expression> '==' <relational-expression>
 static bool equalityExpression() {
     if (!relationalExpression()) {
@@ -521,7 +526,7 @@ static bool equalityExpression() {
     return true;
 }
 
-// 第7层：关系表达式层
+// 关系表达式
 // <relational-expression> ::= <additive-expression>
 //                          | <relational-expression> '<' <additive-expression>
 //                          | <relational-expression> '>' <additive-expression>
@@ -544,7 +549,7 @@ static bool relationalExpression() {
     return true;
 }
 
-// 第8层：算术表达式层
+// 加减表达式
 // <additive-expression> ::= <multiplicative-expression>
 //                        | <additive-expression> '+' <multiplicative-expression>
 //                        | <additive-expression> '-' <multiplicative-expression>
@@ -564,7 +569,7 @@ static bool additiveExpression() {
     return true;
 }
 
-// 第8层：算术表达式层
+// 乘除表达式
 // <multiplicative-expression> ::= <primary-expression>
 //                              | <multiplicative-expression> '*' <primary-expression>
 //                              | <multiplicative-expression> '/' <primary-expression>
@@ -584,7 +589,7 @@ static bool multiplicativeExpression() {
     return true;
 }
 
-// 第9层：基本表达式层
+// 基本表达式
 // <primary-expression> ::= <identifier>
 //                       | <constant>
 //                       | '(' <expression> ')'
@@ -613,6 +618,7 @@ static bool primaryExpression() {
     }
 }
 
+// 变量声明
 // <variable-declaration> ::= <type-specifier> <identifier> ('=' <expression>)? ';'
 static bool variableDeclaration() {
     if (!typeSpecifier()) {
@@ -628,7 +634,7 @@ static bool variableDeclaration() {
     
     // 可选的赋值表达式
     if (match(TK_ASSIGN)) {
-        if (!expression()) {
+        if (!logicalOrExpression()) {  // 使用logicalOrExpression而不是expression避免递归问题
             addDetailedError("赋值运算符 '=' 后缺少有效的表达式");
             return false;
         }
@@ -648,7 +654,7 @@ void initParser(FILE* fp) {
     initLexer(fp);
     g_errors.clear();
     g_hasError = false;  // 初始化错误标志
-    g_token = getNextToken();
+    // 不要在这里预先获取第一个token
 }
 
 ParserResult parse() {

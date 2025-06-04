@@ -26,7 +26,7 @@ static const TokenCode keyWordCodes[] = {
 
 /**
  * 数字后可跟随的字符
- * 用于“吞噬”错误的数字词法。
+ * 用于"吞噬"错误的数字词法。
 */
 static const int numberNextPassNum = 16;
 static const char numberNextPass[100] = {
@@ -331,4 +331,4 @@ void resetLexer() {
 void closeLexer() {
     g_fp = nullptr;
     g_hasUnget = false;
-} 
+}

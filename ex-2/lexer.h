@@ -92,4 +92,6 @@ void resetLexer();
 // 关闭词法分析器
 void closeLexer();
 
+std::string getTokenName(TokenCode code);
+
 #endif /* LEXER_H */ 

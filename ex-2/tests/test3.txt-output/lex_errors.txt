@@ -1,6 +1,0 @@
-行号	错误信息
--------------------------------------
-20	Unknown symbol: !
-22	Unknown symbol: %
-20	Unknown symbol: !
-22	Unknown symbol: %
